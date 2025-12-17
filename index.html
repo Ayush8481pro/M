@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Music@8481</title>
+    
+    <!-- PWA Theme Colors -->
+    <meta name="theme-color" content="#000000">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Music@8481">
+
+    <style>
+        /* CSS RESET & FULLSCREEN SETUP */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none; /* Prevent text selection */
+        }
+
+        body, html {
+            width: 100%;
+            height: 100%;
+            overflow: hidden; /* Disable standard scrolling */
+            background-color: #000000;
+            overscroll-behavior: none; /* Block Pull-to-Refresh */
+        }
+
+        /* BANNER / SPLASH SCREEN STYLES */
+        #splash-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 9999;
+            background: #000000;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            transition: opacity 0.5s ease;
+        }
+
+        #banner-img {
+            max-width: 90%;
+            max-height: 60vh;
+            border-radius: 15px;
+            box-shadow: 0 0 20px rgba(255, 255, 255, 0.1);
+            margin-bottom: 30px;
+        }
+
+        #enter-btn {
+            padding: 15px 40px;
+            font-size: 18px;
+            background: #fff;
+            color: #000;
+            border: none;
+            border-radius: 30px;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(255,255,255,0.2);
+            font-family: sans-serif;
+        }
+
+        /* MAIN APP CONTAINER (IFRAME) */
+        #app-frame {
+            width: 100vw;
+            height: 100vh;
+            border: none;
+            display: none; /* Hidden until splash screen is dismissed */
+        }
+
+        /* OFFLINE MESSAGE */
+        #offline-msg {
+            display: none;
+            color: white;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-family: sans-serif;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- SPLASH SCREEN / INSTALL UI -->
+    <div id="splash-screen">
+        <img id="banner-img" src="https://ayush8481-dev.github.io/Temp/IMG_20251216_201906.jpg" alt="Music@8481 Banner">
+        <button id="enter-btn" onclick="enterApp()">Launch App</button>
+    </div>
+
+    <!-- OFFLINE MESSAGE -->
+    <div id="offline-msg">
+        <h2>No Internet Connection</h2>
+        <p>Please connect to internet to stream music.</p>
+    </div>
+
+    <!-- TARGET WEBSITE WRAPPER -->
+    <iframe id="app-frame" src="" sandbox="allow-scripts allow-same-origin allow-forms allow-popups"></iframe>
+
+    <script>
+        // --- 1. CONFIGURATION ---
+        const targetUrl = "http://ayushmusic.xo.je/";
+        const appName = "Music@8481";
+        const iconUrl = "https://ayush8481-dev.github.io/Temp/IMG_20251216_201906.jpg";
+
+        // --- 2. DYNAMIC MANIFEST GENERATION (For "Add to Home Screen") ---
+        // This trick allows a single file to have a PWA manifest without a second file.
+        const manifest = {
+            "name": appName,
+            "short_name": appName,
+            "start_url": window.location.href,
+            "display": "standalone",
+            "background_color": "#000000",
+            "theme_color": "#000000",
+            "orientation": "portrait",
+            "icons": [
+                {
+                    "src": iconUrl,
+                    "sizes": "192x192",
+                    "type": "image/jpeg"
+                },
+                {
+                    "src": iconUrl,
+                    "sizes": "512x512",
+                    "type": "image/jpeg"
+                }
+            ]
+        };
+
+        const stringManifest = JSON.stringify(manifest);
+        const blob = new Blob([stringManifest], {type: 'application/json'});
+        const manifestURL = URL.createObjectURL(blob);
+        
+        const link = document.createElement('link');
+        link.rel = 'manifest';
+        link.href = manifestURL;
+        document.head.appendChild(link);
+
+        // --- 3. APP LOGIC ---
+
+        function enterApp() {
+            if (navigator.onLine) {
+                // Hide splash
+                document.getElementById('splash-screen').style.opacity = '0';
+                setTimeout(() => {
+                    document.getElementById('splash-screen').style.display = 'none';
+                    const frame = document.getElementById('app-frame');
+                    frame.style.display = 'block';
+                    frame.src = targetUrl; // Load URL only when entering to save data
+                }, 500);
+                
+                // Trigger Fullscreen
+                if (document.documentElement.requestFullscreen) {
+                    document.documentElement.requestFullscreen().catch((e)=>{});
+                }
+            } else {
+                alert("Internet connection required for first load.");
+            }
+        }
+
+        // --- 4. DISABLE BACK BUTTON (HISTORY HIJACK) ---
+        // This pushes the current state repeatedly so hitting 'Back' stays on page
+        history.pushState(null, document.title, location.href);
+        window.addEventListener('popstate', function (event) {
+            history.pushState(null, document.title, location.href);
+        });
+
+        // --- 5. BLOCK REFRESH & CONTEXT MENU ---
+        
+        // Prevent Pull-to-refresh visualization
+        document.body.style.overscrollBehavior = 'none';
+
+        // Block accidental F5 or Ctrl+R (Desktop)
+        window.addEventListener('keydown', function(e) {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'r') {
+                e.preventDefault();
+            }
+            if (e.key === 'F5') {
+                e.preventDefault();
+            }
+        });
+
+        // Ask confirmation before leaving (prevents accidental close)
+        window.onbeforeunload = function() {
+            return "Are you sure you want to close the app?";
+        };
+
+        // --- 6. OFFLINE HANDLING ---
+        window.addEventListener('offline', function() {
+            document.getElementById('offline-msg').style.display = 'block';
+            document.getElementById('app-frame').style.display = 'none';
+        });
+
+        window.addEventListener('online', function() {
+            document.getElementById('offline-msg').style.display = 'none';
+            if(document.getElementById('splash-screen').style.display === 'none'){
+                document.getElementById('app-frame').style.display = 'block';
+            }
+        });
+
+        // --- 7. SERVICE WORKER (Essential for "Install App" prompt on Chrome) ---
+        if ('serviceWorker' in navigator) {
+            // Create a dummy service worker to satisfy PWA requirements
+            const swCode = `
+                self.addEventListener('install', (e) => {
+                    self.skipWaiting();
+                });
+                self.addEventListener('fetch', (e) => {
+                    // Pass through all requests
+                    e.respondWith(fetch(e.request).catch(() => {
+                        return new Response('Offline Mode');
+                    }));
+                });
+            `;
+            
+            const swBlob = new Blob([swCode], {type: 'application/javascript'});
+            const swUrl = URL.createObjectURL(swBlob);
+
+            navigator.serviceWorker.register(swUrl)
+                .then(reg => console.log('App Ready', reg))
+                .catch(err => console.log('SW Fail', err));
+        }
+    </script>
+</body>
+  </html>
