@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Akamai Player - Perfect Embed</title>
+    <title>Akamai Player - Perfect 4:3 Crop</title>
     
     <style>
         :root {
@@ -15,8 +15,8 @@
         }
 
         /* 
-           1. NO SCROLLING GUARANTEE 
-           Locks the body to exactly the window size.
+           1. CINEMATIC BLACK BACKGROUND & NO SCROLLING
+           Locks the screen and ensures the "else area" is always black.
         */
         body, html {
             margin: 0; padding: 0;
@@ -24,21 +24,21 @@
             background-color: var(--bg-color);
             color: var(--text-color);
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            overflow: hidden; /* ABSOLUTELY NO SCROLLBARS */
+            overflow: hidden; /* NO SCROLLBARS */
             display: flex;
             align-items: center;
             justify-content: center;
         }
 
         /* 
-           2. THE PLAYER CONTAINER
-           This dynamically sizes to fit the screen without ever exceeding it.
+           2. THE VISIBLE VIDEO AREA (Strictly 4:3)
+           Everything outside this box is hidden or black.
         */
         .player-wrapper {
             position: relative;
             background-color: #000;
-            overflow: hidden; /* Slices off the header perfectly */
-            /* The Width, Height, and Ratio are strictly managed by JS below */
+            overflow: hidden; /* Slices off the 205px header perfectly */
+            /* Width, Height, and Aspect Ratio are strictly managed by JS below */
         }
 
         iframe {
@@ -47,7 +47,7 @@
             transform-origin: top left;
         }
 
-        /* --- SETTINGS PANEL (Floating overlay so it doesn't cause scrolling) --- */
+        /* --- SETTINGS PANEL --- */
         .controls-container {
             position: absolute; top: 15px; left: 15px; right: 15px;
             max-width: 800px; margin: 0 auto;
@@ -86,7 +86,6 @@
         }
         .apply-btn:hover { background: #1f6feb; }
 
-        /* Floating Settings Toggle Button */
         .settings-toggle {
             position: absolute; bottom: 15px; right: 15px; z-index: 101;
             background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);
@@ -98,34 +97,35 @@
 </head>
 <body>
 
-    <!-- SETTINGS TOGGLE (To view pure embed mode) -->
+    <!-- SETTINGS TOGGLE -->
     <button class="settings-toggle" onclick="toggleSettings()">⚙️ Toggle Settings</button>
 
     <!-- FLOATING CONTROL PANEL -->
-    <div class="controls-container" id="controlsPanel">
+    <div class="controls-container hidden" id="controlsPanel">
         <div class="controls-title">
             <span>Embed Configuration</span>
         </div>
         <div class="input-grid">
             <div class="input-group">
-                <label>Aspect Ratio (e.g. 4/3, 16/9)</label>
+                <label>Aspect Ratio</label>
+                <!-- Set to 4/3 as requested -->
                 <input type="text" id="inpRatio" value="4/3">
             </div>
             <div class="input-group">
                 <label>Forced Desktop Width</label>
-                <input type="number" id="inpDesktop" value="1180">
+                <!-- Set to 650 as requested -->
+                <input type="number" id="inpDesktop" value="650">
             </div>
             <div class="input-group">
-                <!-- THE MAGIC CROP FIX: -->
-                <!-- Enter the exact pixel height of the Akamai Header on Desktop -->
                 <label>Desktop Header Crop (px)</label>
-                <input type="number" id="inpCrop" value="55">
+                <!-- Set to 205 as requested -->
+                <input type="number" id="inpCrop" value="205">
             </div>
         </div>
         <button class="apply-btn" onclick="applyDimensions()">Apply & Hide Settings</button>
     </div>
 
-    <!-- THE PLAYER CONTAINER -->
+    <!-- THE PLAYER CONTAINER (The 4:3 Visible Area) -->
     <div class="player-wrapper" id="playerWrapper">
         <iframe 
             id="akamaiIframe"
@@ -142,22 +142,17 @@
 
         function toggleSettings() {
             panel.classList.toggle('hidden');
-            // Re-calculate math slightly after UI change just in case
             setTimeout(applyDimensions, 100);
         }
 
         function applyDimensions() {
-            // Hide panel when hitting apply for a clean look
             if (!event || event.type === 'click') panel.classList.add('hidden');
 
             const ratioStr = document.getElementById('inpRatio').value.trim();
-            const desktopWidth = parseFloat(document.getElementById('inpDesktop').value.trim()) || 1180;
-            
-            // This is the physical height of the header in the 1180px desktop view.
-            const desktopHeaderHeight = parseFloat(document.getElementById('inpCrop').value.trim()) || 0;
+            const desktopWidth = parseFloat(document.getElementById('inpDesktop').value.trim()) || 650;
+            const desktopHeaderHeight = parseFloat(document.getElementById('inpCrop').value.trim()) || 205;
 
-            // 1. DYNAMIC NO-SCROLL RATIO MATH
-            // This forces the wrapper to act like "object-fit: contain" perfectly fitting the screen.
+            // 1. STRICT 4:3 CONTAINMENT MATH (No Overflow, Rest is Black)
             if (ratioStr.includes('/')) {
                 const parts = ratioStr.split('/');
                 const ratioNum = parseFloat(parts[0]) / parseFloat(parts[1]);
@@ -165,48 +160,44 @@
                 wrapper.style.aspectRatio = ratioStr;
                 wrapper.style.width = '100%';
                 wrapper.style.height = '100%';
-                // The absolute limit width so it doesn't overflow height on landscape
+                
+                // These two lines guarantee the box NEVER exceeds the screen, 
+                // framing the 4:3 area perfectly in the center of the black background.
                 wrapper.style.maxWidth = `calc(100vh * ${ratioNum})`; 
-                wrapper.style.maxHeight = '100%';
-            } else {
-                // If blank, just fill entire screen
-                wrapper.style.aspectRatio = 'unset';
-                wrapper.style.width = '100%'; wrapper.style.height = '100%';
-                wrapper.style.maxWidth = '100%'; wrapper.style.maxHeight = '100%';
+                wrapper.style.maxHeight = `calc(100vw / ${ratioNum})`;
             }
 
-            // 2. Wait 50ms for CSS to reshape the box, then slice the video
+            // 2. Wait 50ms for CSS to reshape the strict 4:3 box, then slice the video
             setTimeout(() => {
                 scaleIframe(desktopWidth, desktopHeaderHeight);
             }, 50);
         }
 
         function scaleIframe(desktopWidth, desktopHeaderHeight) {
-            // Get the resulting exact pixel size of the black wrapper box
+            // Get the resulting exact pixel size of the black 4:3 wrapper box
             const wrapperWidth = wrapper.clientWidth;
             const wrapperHeight = wrapper.clientHeight;
 
-            // --- THE PERFECT RESPONSIVE CROP MATH ---
-            // Figure out how much we are shrinking the massive 1180px layout down
+            // --- THE RESPONSIVE CROP MATH ---
+            // Calculate how much we are shrinking or enlarging the 650px layout
             const scaleRatio = wrapperWidth / desktopWidth;
 
-            // If the header is 55px tall in the massive desktop view, and we shrink the video by 0.5x,
-            // we must crop exactly 27.5px. This makes the crop IDENTICAL on portrait or landscape!
+            // Multiply your 205px crop by the scale ratio. 
+            // If the 650px frame gets shrunk to fit a phone, the 205px crop shrinks perfectly with it.
             const scaledCropPx = desktopHeaderHeight * scaleRatio;
 
-            // 1. Shift the iframe up by the exact computed amount to slice the header off
+            // 1. Shift the iframe up by the exact computed amount to slice the 205px header off
             iframe.style.top = `-${scaledCropPx}px`;
 
-            // 2. Force the Iframe into Desktop Landscape mode
+            // 2. Force the Iframe into the 650px Forced Desktop mode
             iframe.style.width = desktopWidth + 'px';
             
             // 3. Fix the Bottom Gap
-            // Because we shifted the top up, the bottom will be too short. 
-            // We calculate the visual height needed, and un-scale it to get the raw height.
+            // Because we shifted the top up, we extend the bottom to make sure the remaining video fills the 4:3 box.
             const requiredVisualHeight = wrapperHeight + scaledCropPx;
             iframe.style.height = (requiredVisualHeight / scaleRatio) + 'px';
 
-            // 4. Shrink it down natively
+            // 4. Shrink/Enlarge it natively using GPU transforms
             iframe.style.transform = `scale(${scaleRatio})`;
         }
 
