@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Akamai HLS Adaptive Media Player</title>
+    
+    <!-- 1. Load Official Akamai AMP Web SDK via Akamai's CDN -->
+    <!-- Using the public 'samples' API key intended for developer testing -->
+    <script src="https://amp.akamaized.net/hosted/1.1/player.esi?apikey=samples"></script>
+
+    <!-- 2. CSS Styling (Dark Mode, Responsive, Clean UI) -->
+    <style>
+        :root {
+            --akamai-blue: #0072C6;
+            --bg-dark: #121212;
+            --container-bg: #1e1e1e;
+            --text-light: #ffffff;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text-light);
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .header {
+            background-color: var(--akamai-blue);
+            width: 100%;
+            padding: 20px 0;
+            text-align: center;
+            font-size: 1.5rem;
+            font-weight: bold;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+            letter-spacing: 1px;
+        }
+
+        .player-container {
+            width: 100%;
+            max-width: 960px;
+            margin: 40px auto;
+            background: var(--container-bg);
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+        }
+
+        .input-group {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 25px;
+        }
+
+        input[type="text"] {
+            flex: 1;
+            padding: 14px 18px;
+            border: 2px solid #333;
+            border-radius: 8px;
+            background: #2a2a2a;
+            color: #fff;
+            font-size: 1rem;
+            outline: none;
+            transition: border-color 0.3s ease;
+        }
+
+        input[type="text"]:focus {
+            border-color: var(--akamai-blue);
+        }
+
+        button {
+            padding: 14px 28px;
+            border: none;
+            border-radius: 8px;
+            background-color: var(--akamai-blue);
+            color: white;
+            font-size: 1rem;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background-color 0.3s ease, transform 0.1s;
+        }
+
+        button:hover {
+            background-color: #005a9e;
+        }
+
+        button:active {
+            transform: scale(0.98);
+        }
+
+        /* 16:9 Aspect Ratio Wrapper for Akamai Player */
+        .video-wrapper {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 16 / 9;
+            background-color: #000;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.8);
+        }
+
+        /* Target the Akamai AMP injected container */
+        #akamai-player {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+
+        .status-bar {
+            margin-top: 20px;
+            font-size: 0.95rem;
+            color: #b3b3b3;
+            text-align: center;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 10px;
+        }
+        
+        .indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background-color: #ff3b30; /* Red for stopped */
+            margin-right: 8px;
+            transition: background-color 0.3s;
+        }
+        .indicator.playing {
+            background-color: #34c759; /* Green for playing */
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        Akamai AMP (Adaptive Media Player)
+    </div>
+
+    <div class="player-container">
+        <!-- Input section -->
+        <div class="input-group">
+            <input type="text" id="streamUrl" placeholder="Paste your Akamai .m3u8 stream URL here..." value="https://bitdash-a.akamaihd.net/content/sintel/hls/playlist.m3u8">
+            <button onclick="loadStream()">Play Stream</button>
+        </div>
+        
+        <!-- Player injection target -->
+        <div class="video-wrapper">
+            <div id="akamai-player"></div>
+        </div>
+        
+        <!-- Status Tracker -->
+        <div class="status-bar">
+            <div><span class="indicator" id="statusIndicator"></span><span id="statusText">Waiting for user input...</span></div>
+            <div id="qualityText">Auto Quality</div>
+        </div>
+    </div>
+
+    <!-- 3. Javascript Initialization -->
+    <script>
+        let ampPlayer = null;
+
+        function updateStatus(message, isPlaying = false) {
+            document.getElementById('statusText').innerText = message;
+            const indicator = document.getElementById('statusIndicator');
+            if (isPlaying) {
+                indicator.classList.add('playing');
+            } else {
+                indicator.classList.remove('playing');
+            }
+        }
+
+        function initAkamaiPlayer(m3u8Url) {
+            // Check if adblockers blocked the Akamai SDK
+            if (typeof akamai === 'undefined' || !akamai.amp) {
+                updateStatus("Error: Akamai SDK blocked. Please disable AdBlocker.", false);
+                alert("The Akamai Player script failed to load. Please pause your AdBlocker / Brave Shields and refresh.");
+                return;
+            }
+
+            updateStatus("Initializing Akamai AMP framework...");
+
+            // If the player is already initialized, just load the new source
+            if (ampPlayer) {
+                // Set new media dynamically
+                ampPlayer.media = {
+                    src: m3u8Url,
+                    type: "application/x-mpegURL"
+                };
+                ampPlayer.play();
+                return;
+            }
+
+            // Define AMP configuration
+            const config = {
+                autoplay: true,
+                media: {
+                    title: "Akamai Protected HLS Stream",
+                    src: m3u8Url,
+                    type: "application/x-mpegURL" // Tells AMP this is an HLS source
+                },
+                captioning: {
+                    enabled: true
+                },
+                hls: {
+                    // Akamai specific tuning that ensures tokenized variants don't drop
+                    overrideNative: true, // Forces Akamai's custom ABR engine over native HTML5
+                    maxBufferLength: 60
+                }
+            };
+
+            // Inject and create the player
+            akamai.amp.AMP.create("akamai-player", config, function(event) {
+                ampPlayer = event.player;
+                
+                // --- Attach Player Event Listeners ---
+                
+                ampPlayer.addEventListener('playing', function() {
+                    updateStatus("Status: Playing smoothly", true);
+                });
+
+                ampPlayer.addEventListener('pause', function() {
+                    updateStatus("Status: Paused", false);
+                });
+
+                ampPlayer.addEventListener('error', function(errorEvent) {
+                    console.error("Akamai AMP Error:", errorEvent);
+                    updateStatus("Status: Error loading stream (See Console)", false);
+                });
+
+                ampPlayer.addEventListener('bitratechange', function() {
+                    let quality = ampPlayer.quality; // Fetches current active quality level
+                    if (quality && quality.bitrate) {
+                        let mbps = (quality.bitrate / 1000000).toFixed(2);
+                        document.getElementById('qualityText').innerText = `Quality: ${mbps} Mbps`;
+                    }
+                });
+            });
+        }
+
+        function loadStream() {
+            const url = document.getElementById('streamUrl').value.trim();
+            if (!url) {
+                alert("Please enter a valid .m3u8 URL");
+                return;
+            }
+            
+            // Initiate Playback
+            initAkamaiPlayer(url);
+        }
+
+        // Validate SDK load on page load
+        window.onload = () => {
+            if (typeof akamai === 'undefined' || !akamai.amp) {
+                updateStatus("Warning: Akamai Player Script failed to fetch from CDN.", false);
+            } else {
+                updateStatus("Ready. Insert URL and click Play.", false);
+            }
+        };
+    </script>
+</body>
+</html>
