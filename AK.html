@@ -3,107 +3,100 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Akamai HLS Resilient Player</title>
+    <title>Akamai Encrypted HLS Player (Servekeys/CORS Fix)</title>
     
-    <!-- Using the exact HLS engine that powers the Akamai Test Player -->
+    <!-- Using standard HLS.js, but we will deeply configure it via JS -->
     <script src="https://cdn.jsdelivr.net/npm/hls.js@1.4.12/dist/hls.min.js"></script>
 
     <style>
         :root {
             --akamai-blue: #0072C6;
-            --bg-dark: #0f1115;
-            --panel-bg: #1b1e24;
+            --bg-dark: #0a0c10;
+            --panel-bg: #161a22;
             --text-light: #e0e6ed;
-            --error-red: #ff4d4f;
-            --success-green: #00e676;
+            --border-color: #30363d;
         }
 
         body {
-            font-family: 'Segoe UI', system-ui, sans-serif;
-            background-color: var(--bg-dark);
-            color: var(--text-light);
-            margin: 0; padding: 20px;
-            display: flex; flex-direction: column; align-items: center;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-dark); color: var(--text-light);
+            margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center;
         }
 
         .player-container {
-            width: 100%; max-width: 1000px;
-            background: var(--panel-bg);
-            padding: 25px; border-radius: 12px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+            width: 100%; max-width: 900px; background: var(--panel-bg);
+            padding: 25px; border-radius: 12px; box-shadow: 0 12px 24px rgba(0,0,0,0.9);
+            border: 1px solid var(--border-color);
         }
 
         .header-title {
             text-align: center; color: var(--akamai-blue);
-            font-size: 1.5rem; font-weight: bold; margin-bottom: 20px;
+            font-size: 1.4rem; font-weight: bold; margin-bottom: 20px;
+            letter-spacing: 0.5px;
         }
 
-        .controls {
-            display: flex; flex-direction: column; gap: 15px; margin-bottom: 20px;
-        }
-
+        .controls { display: flex; flex-direction: column; gap: 15px; margin-bottom: 20px; }
         .input-row { display: flex; gap: 10px; }
 
         input[type="text"] {
-            flex: 1; padding: 12px;
-            background: #2a2e37; border: 1px solid #3c414d;
+            flex: 1; padding: 14px; background: #0d1117; border: 1px solid var(--border-color);
             border-radius: 6px; color: #fff; font-size: 1rem;
         }
 
         button {
-            padding: 12px 24px; background: var(--akamai-blue);
-            color: white; border: none; border-radius: 6px;
-            font-weight: bold; cursor: pointer; transition: 0.2s;
+            padding: 14px 24px; background: var(--akamai-blue); color: white;
+            border: none; border-radius: 6px; font-weight: bold; cursor: pointer;
+            transition: 0.2s;
         }
-
         button:hover { background: #005a9e; }
 
-        .checkbox-row {
-            display: flex; align-items: center; gap: 10px;
-            font-size: 0.9rem; color: #a0aabf;
+        .options-row {
+            display: flex; flex-wrap: wrap; gap: 20px;
+            font-size: 0.9rem; color: #8b949e; background: #0d1117;
+            padding: 12px; border-radius: 6px; border: 1px solid var(--border-color);
         }
+        .options-row label { display: flex; align-items: center; gap: 8px; cursor: pointer; }
 
         .video-wrapper {
-            position: relative; width: 100%; aspect-ratio: 16/9;
-            background: #000; border-radius: 8px; overflow: hidden;
-            border: 1px solid #3c414d;
+            width: 100%; aspect-ratio: 16/9; background: #000;
+            border-radius: 8px; overflow: hidden; border: 1px solid var(--border-color);
         }
-
         video { width: 100%; height: 100%; outline: none; }
 
-        /* Akamai-style Debug/Stats Panel */
-        .stats-panel {
-            display: flex; justify-content: space-between;
-            margin-top: 15px; padding: 15px;
-            background: #121419; border-radius: 8px;
-            font-size: 0.85rem; border: 1px solid #2a2e37;
-        }
-
         .log-box {
-            margin-top: 15px; padding: 12px; height: 100px;
-            background: #0a0b0d; border-radius: 6px;
-            font-family: monospace; font-size: 0.8rem;
-            overflow-y: auto; color: #a0aabf;
+            margin-top: 20px; padding: 15px; height: 120px; background: #010409;
+            border-radius: 6px; font-family: 'Courier New', Courier, monospace;
+            font-size: 0.85rem; overflow-y: auto; color: #8b949e;
+            border: 1px solid var(--border-color);
         }
-        
-        .log-error { color: var(--error-red); }
-        .log-success { color: var(--success-green); }
+        .log-error { color: #ff7b72; }
+        .log-success { color: #3fb950; }
+        .log-warn { color: #d29922; }
     </style>
 </head>
 <body>
 
     <div class="player-container">
-        <div class="header-title">Akamai HLS Resilient Player</div>
+        <div class="header-title">Akamai AES-128 / Servekeys Player</div>
 
         <div class="controls">
             <div class="input-row">
-                <input type="text" id="streamUrl" placeholder="Enter Akamai .m3u8 URL here...">
+                <input type="text" id="streamUrl" placeholder="Enter .m3u8 URL here...">
                 <button onclick="loadStream()">Play Stream</button>
             </div>
-            <div class="checkbox-row">
-                <!-- CRITICAL: This mirrors the Akamai Test Player's "With Credentials" logic -->
-                <input type="checkbox" id="withCredentials" checked>
-                <label for="withCredentials">Send Cookies / Credentials (Required for Akamai Token Auth / hdnts)</label>
+            <div class="options-row">
+                <label>
+                    <input type="checkbox" id="withCredentials" checked>
+                    Send CORS Credentials (Cookies)
+                </label>
+                <label>
+                    <input type="checkbox" id="inheritTokens" checked>
+                    Pass Master URL Tokens to Keys
+                </label>
+                <label title="Use this if the Key server strictly blocks your domain.">
+                    <input type="checkbox" id="useCorsProxy">
+                    Bypass strict CORS via Proxy (Fixes Key fetch blocks)
+                </label>
             </div>
         </div>
 
@@ -111,14 +104,7 @@
             <video id="video" controls></video>
         </div>
 
-        <div class="stats-panel">
-            <div><strong>Status:</strong> <span id="stat-status">Waiting...</span></div>
-            <div><strong>Resolution:</strong> <span id="stat-res">N/A</span></div>
-            <div><strong>Bitrate:</strong> <span id="stat-bitrate">N/A</span></div>
-            <div><strong>Buffer:</strong> <span id="stat-buffer">0s</span></div>
-        </div>
-
-        <div class="log-box" id="logBox">System ready...<br></div>
+        <div class="log-box" id="logBox">Player initialized. Ready to process encrypted streams.<br></div>
     </div>
 
     <script>
@@ -128,47 +114,82 @@
 
         function log(msg, type = "normal") {
             const span = document.createElement('span');
-            span.innerHTML = msg + "<br>";
+            span.innerHTML = `[${new Date().toLocaleTimeString()}] ${msg}<br>`;
             if (type === "error") span.className = "log-error";
             if (type === "success") span.className = "log-success";
+            if (type === "warn") span.className = "log-warn";
             logBox.appendChild(span);
             logBox.scrollTop = logBox.scrollHeight;
         }
 
-        function updateStat(id, value) {
-            document.getElementById(id).innerText = value;
+        // --- THE MAGIC: Custom Akamai Network Interceptor ---
+        // This overrides standard behavior to force tokens and CORS bypass on Encryption Keys
+        class AkamaiNetworkInterceptor extends Hls.DefaultConfig.loader {
+            constructor(config) {
+                super(config);
+                const originalLoad = this.load.bind(this);
+                
+                this.load = function (context, config, callbacks) {
+                    const inheritTokens = document.getElementById('inheritTokens').checked;
+                    const useCorsProxy = document.getElementById('useCorsProxy').checked;
+
+                    // 1. Identify if the browser is fetching an AES-128 Encryption Key (servekeys)
+                    if (context.type === 'key' || context.url.includes('servekeys')) {
+                        log(`Intercepted Key Request: ${context.url}`, 'warn');
+
+                        // 2. Inherit Akamai Security Tokens from Master Playlist
+                        if (inheritTokens && window.masterQueryParams && !context.url.includes(window.masterQueryParams.substring(1, 5))) {
+                            const separator = context.url.includes('?') ? '&' : '?';
+                            context.url += separator + window.masterQueryParams.substring(1);
+                            log(`Appended Akamai Token to Key: ${context.url}`, 'success');
+                        }
+
+                        // 3. Bypass Origin Block (CORS Proxy)
+                        if (useCorsProxy) {
+                            // Uses a public proxy to strip origin blocks from the servekeys server
+                            context.url = 'https://corsproxy.io/?' + encodeURIComponent(context.url);
+                            log(`Routed Key request through CORS proxy.`, 'warn');
+                        }
+                    }
+
+                    // Proceed with the modified request
+                    originalLoad(context, config, callbacks);
+                };
+            }
         }
 
         function loadStream() {
             const url = document.getElementById('streamUrl').value.trim();
-            const useCredentials = document.getElementById('withCredentials').checked;
+            const sendCredentials = document.getElementById('withCredentials').checked;
 
-            if (!url) {
-                alert("Please enter a valid m3u8 URL");
-                return;
-            }
+            if (!url) return alert("Please enter a valid m3u8 URL");
+
+            // Extract query parameters (Akamai tokens) from the main URL
+            try {
+                const urlObj = new URL(url);
+                window.masterQueryParams = urlObj.search; 
+            } catch(e) { window.masterQueryParams = ""; }
 
             if (hls) {
                 hls.destroy();
-                log("Destroyed previous player instance.");
             }
 
-            // Check if HLS.js is supported (Standard across modern Chrome/Firefox/Edge)
             if (Hls.isSupported()) {
-                log("Initializing Akamai-grade HLS engine...");
+                log("Starting Akamai engine with Custom CORS/Key Interceptor...");
 
-                // AKAMAI-SPECIFIC CONFIGURATION
                 const hlsConfig = {
                     debug: false,
-                    // Tolerances for Akamai Discontinuities (Ad Insertion / Source switching)
-                    maxBufferSize: 0,
-                    maxBufferLength: 30,
-                    liveSyncDuration: 30,
-                    manifestLoadingTimeOut: 20000,
-                    // XHR Setup: This allows cross-origin Akamai session cookies
+                    // Inject our custom interceptor class
+                    fLoader: AkamaiNetworkInterceptor, 
+                    pLoader: AkamaiNetworkInterceptor,
+                    
+                    // Allows decryption keys to be fetched asynchronously 
+                    emeEnabled: true,
+                    
+                    // The core XHR Setup for CORS credentials
                     xhrSetup: function(xhr, xhrUrl) {
-                        if (useCredentials) {
-                            xhr.withCredentials = true; // THIS IS THE MAGIC FIX FOR AKAMAI TOKENS
+                        if (sendCredentials) {
+                            xhr.withCredentials = true;
                         }
                     }
                 };
@@ -177,62 +198,38 @@
                 hls.loadSource(url);
                 hls.attachMedia(video);
 
-                // Event: Ready to Play
-                hls.on(Hls.Events.MANIFEST_PARSED, function(event, data) {
-                    log(`Manifest loaded successfully. Found ${data.levels.length} quality levels.`, "success");
-                    updateStat("stat-status", "Playing");
-                    video.play().catch(e => log("Autoplay blocked by browser. Press play.", "error"));
+                hls.on(Hls.Events.MANIFEST_PARSED, function() {
+                    log("Manifest loaded. Checking for encryption keys...", "success");
+                    video.play().catch(() => log("Press play to start.", "warn"));
+                });
+                
+                hls.on(Hls.Events.KEY_LOADED, function() {
+                    log("AES/DRM Key downloaded successfully. Decrypting stream...", "success");
                 });
 
-                // Track Quality Shifts (Matches Akamai Debug Data)
-                hls.on(Hls.Events.LEVEL_SWITCHED, function(event, data) {
-                    const level = hls.levels[data.level];
-                    updateStat("stat-res", `${level.width}x${level.height}`);
-                    updateStat("stat-bitrate", `${(level.bitrate / 1000000).toFixed(2)} Mbps`);
-                });
-
-                // Track Buffer (Akamai streams require healthy buffer management)
-                hls.on(Hls.Events.FRAG_BUFFERED, function() {
-                    const buffer = video.buffered.length > 0 ? video.buffered.end(video.buffered.length - 1) - video.currentTime : 0;
-                    updateStat("stat-buffer", `${buffer.toFixed(1)}s`);
-                });
-
-                // AKAMAI DEEP ERROR RECOVERY
                 hls.on(Hls.Events.ERROR, function(event, data) {
                     if (data.fatal) {
-                        switch (data.type) {
-                            case Hls.ErrorTypes.NETWORK_ERROR:
-                                log(`Network Error: ${data.details}. Attempting Akamai Edge recovery...`, "error");
-                                hls.startLoad(); // Recover lost edge connection
-                                break;
-                            case Hls.ErrorTypes.MEDIA_ERROR:
-                                log(`Media Error: ${data.details}. Recovering format corruption...`, "error");
-                                hls.recoverMediaError(); // Recover chunk desyncs
-                                break;
-                            default:
-                                log(`Fatal Unrecoverable Error: ${data.details}`, "error");
-                                updateStat("stat-status", "Failed");
-                                hls.destroy();
-                                break;
+                        if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
+                            log(`Network/CORS Error: ${data.details}.`, "error");
+                            if(data.details.includes('keyLoadError')) {
+                                log("Tip: Key was blocked. Try checking 'Bypass strict CORS via Proxy'.", "warn");
+                            }
+                            hls.startLoad(); 
+                        } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
+                            hls.recoverMediaError();
+                        } else {
+                            hls.destroy();
                         }
-                    } else {
-                        // Non-fatal errors (commonly thrown by Akamai token refresh redirects)
-                        console.warn("HLS Warning:", data.details);
+                    } else if (data.details.includes('keyLoadError')) {
+                        log(`Failed to fetch Key. Server likely blocking origin.`, "error");
                     }
                 });
 
-            } 
-            // Fallback for Safari (macOS/iOS) which enforces Native HLS
-            else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-                log("Native HLS detected (Safari). Routing directly to video tag...", "success");
-                video.src = url;
-                video.addEventListener('loadedmetadata', function() {
-                    video.play();
-                });
             } else {
-                log("Your browser does not support HLS playback.", "error");
+                log("Browser natively handling HLS.", "warn");
+                video.src = url;
             }
         }
     </script>
 </body>
-    </html>
+</html>
