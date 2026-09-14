@@ -3,20 +3,39 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Live Stream - Akamai Player</title>
+    <title>Akamai Player - Forced Desktop Mode</title>
     
     <style>
+        /* =========================================================
+           ⚙️ PLAYER CONFIGURATION SETTINGS
+           Change these values to manage Width, Height, and Ratio
+        ========================================================= */
         :root {
-            --bg-color: #0f1115;
+            /* 1. Dimensions */
+            --player-width: 100%;          /* How much screen width to take (e.g., 100%, 90%, 800px) */
+            --player-max-width: 1100px;    /* Maximum width limit */
+            
+            /* 2. Aspect Ratio (Standard is 16/9) */
+            --player-aspect-ratio: 16 / 9; 
+            
+            /* 3. Forced Desktop Resolution Width */
+            /* This tricks the iframe into rendering the Desktop UI. 1280px or 1920px is best. */
+            --forced-desktop-width: 1280px; 
+            
+            /* Background Colors */
+            --page-bg: #0a0c10;
+            --player-bg: #000000;
         }
 
-        /* Basic page reset for a cinematic look */
+        /* =========================================================
+           🎨 PAGE AND PLAYER STYLES
+        ========================================================= */
         body, html {
             margin: 0;
             padding: 0;
             width: 100%;
-            height: 100%;
-            background-color: var(--bg-color);
+            min-height: 100vh;
+            background-color: var(--page-bg);
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -24,51 +43,90 @@
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
         }
 
-        /* Responsive 16:9 Container */
-        .player-wrapper {
-            position: relative;
-            width: 90%;
-            max-width: 1200px;
-            aspect-ratio: 16 / 9; /* Keeps the perfect video ratio */
-            background-color: #000;
-            border-radius: 12px;
-            overflow: hidden;
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8);
-            border: 1px solid #2a2e37;
-        }
-
-        /* Iframe takes up the whole wrapper */
-        iframe {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            border: none;
-        }
-
-        /* Simple Title */
         .title {
             color: #ffffff;
             margin-bottom: 20px;
             font-size: 1.5rem;
-            font-weight: 600;
+            font-weight: bold;
             letter-spacing: 0.5px;
+            text-align: center;
+            padding: 0 15px;
+        }
+
+        /* This wrapper controls the actual responsive size on your page */
+        .player-wrapper {
+            position: relative;
+            width: var(--player-width);
+            max-width: var(--player-max-width);
+            aspect-ratio: var(--player-aspect-ratio);
+            background-color: var(--player-bg);
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.9);
+            border: 1px solid #2a2e37;
+        }
+
+        /* The iframe is fixed to desktop dimensions and scaled down via JS */
+        iframe {
+            position: absolute;
+            top: 0;
+            left: 0;
+            border: none;
+            transform-origin: top left;
+            /* Width and height are dynamically managed by the JS below */
         }
     </style>
 </head>
 <body>
 
-    <div class="title">Live Sports Stream (Ten 3 HD)</div>
+    <div class="title">Live Sports Stream (Forced Desktop Mode)</div>
 
-    <div class="player-wrapper">
-        <!-- The Akamai Player Embedded Here -->
+    <!-- Container managing the ratio and width -->
+    <div class="player-wrapper" id="playerWrapper">
+        <!-- Akamai Player Embed -->
         <iframe 
+            id="akamaiIframe"
             src="https://players.akamai.com/players/hlsjs?streamUrl=https://cloudplay-sonyliv.pages.dev/ten3hd.m3u8" 
             allowfullscreen 
             allow="autoplay; fullscreen; encrypted-media">
         </iframe>
     </div>
 
+    <!-- =========================================================
+         ⚙️ JAVASCRIPT FOR DESKTOP MODE SCALING
+    ========================================================= -->
+    <script>
+        const wrapper = document.getElementById('playerWrapper');
+        const iframe = document.getElementById('akamaiIframe');
+        
+        // Grab the forced desktop width from the CSS variables
+        const rootStyles = getComputedStyle(document.documentElement);
+        const desktopWidth = parseInt(rootStyles.getPropertyValue('--forced-desktop-width')) || 1280;
+
+        function forceDesktopMode() {
+            // Get the current responsive size of the wrapper
+            const wrapperWidth = wrapper.clientWidth;
+            const wrapperHeight = wrapper.clientHeight;
+
+            // Calculate how much we need to shrink the iframe to fit the wrapper
+            const scaleRatio = wrapperWidth / desktopWidth;
+
+            // Force the iframe to render at the desktop width
+            iframe.style.width = desktopWidth + 'px';
+            
+            // Calculate the proportional height for the iframe so it fits perfectly
+            iframe.style.height = (wrapperHeight / scaleRatio) + 'px';
+
+            // Visually scale the iframe down to fit the container natively
+            iframe.style.transform = `scale(${scaleRatio})`;
+        }
+
+        // Run the math on load
+        window.addEventListener('DOMContentLoaded', forceDesktopMode);
+        
+        // Re-calculate automatically if the user rotates their phone or resizes the browser window
+        window.addEventListener('resize', forceDesktopMode);
+    </script>
+
 </body>
-</html>
+            </html>
