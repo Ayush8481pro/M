@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Akamai Player - Live Dimension Tester</title>
+    <title>Akamai Player - Dimension & Crop Tester</title>
     
     <style>
         :root {
@@ -21,15 +21,18 @@
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             display: flex; flex-direction: column; align-items: center;
             min-height: 100vh;
+            /* Prevents the 110% width from creating ugly horizontal page scrollbars */
+            overflow-x: hidden; 
         }
 
         /* --- CONTROL PANEL STYLES --- */
         .controls-container {
-            width: 90%; max-width: 1000px;
+            width: 90%; max-width: 1100px;
             background: var(--panel-bg);
             border: 1px solid var(--border);
             border-radius: 8px; padding: 20px;
             margin: 20px 0; box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+            z-index: 10;
         }
 
         .controls-title {
@@ -38,19 +41,17 @@
         }
 
         .input-grid {
-            display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
             gap: 15px; margin-bottom: 15px;
         }
 
         .input-group { display: flex; flex-direction: column; gap: 5px; }
-
         .input-group label { font-size: 0.85rem; color: #8b949e; font-weight: 500; }
 
         .input-group input {
             padding: 10px; background: #010409; border: 1px solid var(--border);
             color: #fff; border-radius: 6px; font-size: 14px; outline: none;
         }
-
         .input-group input:focus { border-color: var(--accent); }
 
         .apply-btn {
@@ -66,21 +67,24 @@
             background-color: #000;
             border: 1px solid var(--border);
             border-radius: 8px;
-            overflow: hidden;
+            /* Hides everything outside the box (crucial for cropping) */
+            overflow: hidden; 
             box-shadow: 0 10px 40px rgba(0, 0, 0, 0.9);
-            /* Defaults (Overridden by JS when you click apply) */
-            width: 100%; max-width: 900px; aspect-ratio: 16/9;
+            
+            /* Initial Defaults (Overridden by JS immediately on load) */
+            width: 110%; aspect-ratio: 4/3;
         }
 
         iframe {
             position: absolute;
-            top: 0; left: 0; border: none;
+            left: 0; border: none;
+            /* Scales from the top left corner */
             transform-origin: top left;
         }
 
-        /* Note to show the current size */
         .size-indicator {
-            margin-top: 10px; font-size: 0.9rem; color: #8b949e;
+            margin-top: 15px; font-size: 0.9rem; color: #8b949e; margin-bottom: 20px;
+            text-align: center;
         }
     </style>
 </head>
@@ -88,23 +92,28 @@
 
     <!-- LIVE CONTROL PANEL -->
     <div class="controls-container">
-        <h2 class="controls-title">⚙️ Player Dimension Tester</h2>
+        <h2 class="controls-title">⚙️ Player Dimension & Crop Tester</h2>
         <div class="input-grid">
             <div class="input-group">
-                <label>Container Width (e.g. 100%, 800px, 90vw)</label>
-                <input type="text" id="inpWidth" value="100%">
+                <label>Container Width</label>
+                <input type="text" id="inpWidth" value="110%">
             </div>
             <div class="input-group">
-                <label>Container Height (e.g. auto, 400px, 50vh)</label>
-                <input type="text" id="inpHeight" value="auto">
+                <label>Container Height</label>
+                <input type="text" id="inpHeight" value="50vh">
             </div>
             <div class="input-group">
-                <label>Aspect Ratio (e.g. 16/9, 4/3, none)</label>
-                <input type="text" id="inpRatio" value="16/9">
+                <label>Aspect Ratio</label>
+                <input type="text" id="inpRatio" value="4/3">
             </div>
             <div class="input-group">
-                <label>Forced Desktop Width (Forces Landscape UI)</label>
-                <input type="number" id="inpDesktop" value="1280">
+                <label>Forced Desktop Width</label>
+                <input type="number" id="inpDesktop" value="1180">
+            </div>
+            <div class="input-group">
+                <!-- Cropping logic input -->
+                <label>Top Crop (Hides Header)</label>
+                <input type="text" id="inpCrop" value="3cm">
             </div>
         </div>
         <button class="apply-btn" onclick="applyDimensions()">Apply Dimensions Live</button>
@@ -120,9 +129,9 @@
         </iframe>
     </div>
     
-    <div class="size-indicator" id="sizeIndicator">Current Rendered Size: Calculating...</div>
+    <div class="size-indicator" id="sizeIndicator">Calculating Dimensions...</div>
 
-    <!-- JAVASCRIPT FOR DYNAMIC SIZING AND DESKTOP TRICK -->
+    <!-- JAVASCRIPT FOR DYNAMIC SIZING, CROPPING, AND DESKTOP TRICK -->
     <script>
         const wrapper = document.getElementById('playerWrapper');
         const iframe = document.getElementById('akamaiIframe');
@@ -133,52 +142,70 @@
             const widthVal = document.getElementById('inpWidth').value.trim();
             const heightVal = document.getElementById('inpHeight').value.trim();
             const ratioVal = document.getElementById('inpRatio').value.trim();
-            const desktopWidthVal = parseInt(document.getElementById('inpDesktop').value.trim()) || 1280;
+            const desktopWidthVal = parseInt(document.getElementById('inpDesktop').value.trim()) || 1180;
+            const cropVal = document.getElementById('inpCrop').value.trim() || '0px';
 
             // 2. Apply CSS to the Container Wrapper
             wrapper.style.width = widthVal;
 
             if (heightVal.toLowerCase() === 'auto' || heightVal === '') {
                 wrapper.style.height = 'auto';
-                wrapper.style.aspectRatio = ratioVal !== 'none' ? ratioVal : '16/9';
+                wrapper.style.aspectRatio = ratioVal !== 'none' ? ratioVal : '4/3';
             } else {
                 wrapper.style.height = heightVal;
                 wrapper.style.aspectRatio = ratioVal !== 'none' ? ratioVal : 'unset';
             }
 
-            // 3. Wait 50ms for the browser to draw the new container size, then scale the iframe
+            // 3. Dynamically convert absolute units like "3cm" or "50px" into raw pixels 
+            // so our scaling math doesn't break.
+            const measureDiv = document.createElement('div');
+            measureDiv.style.position = 'absolute';
+            measureDiv.style.visibility = 'hidden';
+            measureDiv.style.height = cropVal;
+            document.body.appendChild(measureDiv);
+            const cropPx = measureDiv.getBoundingClientRect().height || 0;
+            document.body.removeChild(measureDiv);
+
+            // 4. Wait 50ms for the browser to visually draw the new container size, then scale the iframe
             setTimeout(() => {
-                scaleIframe(desktopWidthVal);
+                scaleIframe(desktopWidthVal, cropPx);
             }, 50);
         }
 
-        function scaleIframe(desktopWidth) {
-            // Get the exact pixel size of the wrapper after CSS was applied
+        function scaleIframe(desktopWidth, cropPx) {
+            // Get the exact pixel size of the wrapper box
             const wrapperWidth = wrapper.clientWidth;
             const wrapperHeight = wrapper.clientHeight;
 
-            // Update Indicator text
-            indicator.innerText = `Current Rendered Size: ${wrapperWidth}px by ${wrapperHeight}px`;
+            // Update Indicator text on the webpage
+            indicator.innerHTML = `Rendered Container Size: <b>${wrapperWidth}px by ${wrapperHeight}px</b> <br> Visually Cropped from Top: <b>${cropPx.toFixed(1)}px</b>`;
 
-            // Calculate the shrinking ratio to make the massive desktop layout fit the container
+            // Calculate the shrinking ratio to make the massive desktop layout fit the container width
             const scaleRatio = wrapperWidth / desktopWidth;
 
-            // 4. Force the Iframe to render in Desktop Landscape mode
+            // --- THE MAGIC CROP MATH ---
+            
+            // 1. Shift the iframe up by the exact visual crop amount (moves the header out of the box)
+            iframe.style.top = `-${cropPx}px`;
+
+            // 2. Force the Iframe to render in Desktop Landscape width
             iframe.style.width = desktopWidth + 'px';
             
-            // Mathematically fix the iframe's height so it maps perfectly to the wrapper's height
-            iframe.style.height = (wrapperHeight / scaleRatio) + 'px';
+            // 3. Because we shifted the top UP, the bottom of the video would end up short.
+            // We calculate the required visual height (wrapper + crop), and un-scale it to get the raw height needed.
+            const requiredVisualHeight = wrapperHeight + cropPx;
+            iframe.style.height = (requiredVisualHeight / scaleRatio) + 'px';
 
-            // 5. Visually shrink it down
+            // 4. Visually shrink it down
             iframe.style.transform = `scale(${scaleRatio})`;
         }
 
         // Initialize perfectly on first load
         window.addEventListener('DOMContentLoaded', applyDimensions);
         
-        // Ensure it stays perfectly scaled if the user resizes the browser window or rotates their phone
+        // Keep it scaled properly if the user resizes the browser window or rotates their phone
         window.addEventListener('resize', applyDimensions);
     </script>
 
 </body>
-</html>
+        </html>
