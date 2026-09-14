@@ -3,87 +3,115 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Akamai Player - Forced Desktop Mode</title>
+    <title>Akamai Player - Live Dimension Tester</title>
     
     <style>
-        /* =========================================================
-           ⚙️ PLAYER CONFIGURATION SETTINGS
-           Change these values to manage Width, Height, and Ratio
-        ========================================================= */
         :root {
-            /* 1. Dimensions */
-            --player-width: 90%;          /* How much screen width to take (e.g., 100%, 90%, 800px) */
-            --player-max-width: 1100px;    /* Maximum width limit */
-            
-            /* 2. Aspect Ratio (Standard is 16/9) */
-            --player-aspect-ratio: 16 / 9; 
-            
-            /* 3. Forced Desktop Resolution Width */
-            /* This tricks the iframe into rendering the Desktop UI. 1280px or 1920px is best. */
-            --forced-desktop-width: 1920px; 
-            
-            /* Background Colors */
-            --page-bg: #0a0c10;
-            --player-bg: #000000;
+            --bg-color: #0d1117;
+            --panel-bg: #161b22;
+            --text-color: #c9d1d9;
+            --accent: #2f81f7;
+            --border: #30363d;
         }
 
-        /* =========================================================
-           🎨 PAGE AND PLAYER STYLES
-        ========================================================= */
         body, html {
-            margin: 0;
-            padding: 0;
-            width: 100%;
-            min-height: 100vh;
-            background-color: var(--page-bg);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
+            margin: 0; padding: 0;
+            background-color: var(--bg-color);
+            color: var(--text-color);
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            display: flex; flex-direction: column; align-items: center;
+            min-height: 100vh;
         }
 
-        .title {
-            color: #ffffff;
-            margin-bottom: 20px;
-            font-size: 1.5rem;
-            font-weight: bold;
-            letter-spacing: 0.5px;
+        /* --- CONTROL PANEL STYLES --- */
+        .controls-container {
+            width: 90%; max-width: 1000px;
+            background: var(--panel-bg);
+            border: 1px solid var(--border);
+            border-radius: 8px; padding: 20px;
+            margin: 20px 0; box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+        }
+
+        .controls-title {
+            margin: 0 0 15px 0; font-size: 1.2rem; font-weight: 600; color: #fff;
             text-align: center;
-            padding: 0 15px;
         }
 
-        /* This wrapper controls the actual responsive size on your page */
+        .input-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px; margin-bottom: 15px;
+        }
+
+        .input-group { display: flex; flex-direction: column; gap: 5px; }
+
+        .input-group label { font-size: 0.85rem; color: #8b949e; font-weight: 500; }
+
+        .input-group input {
+            padding: 10px; background: #010409; border: 1px solid var(--border);
+            color: #fff; border-radius: 6px; font-size: 14px; outline: none;
+        }
+
+        .input-group input:focus { border-color: var(--accent); }
+
+        .apply-btn {
+            width: 100%; padding: 12px; background: var(--accent);
+            color: #fff; border: none; border-radius: 6px;
+            font-size: 1rem; font-weight: bold; cursor: pointer; transition: 0.2s;
+        }
+        .apply-btn:hover { background: #1f6feb; }
+
+        /* --- PLAYER STYLES --- */
         .player-wrapper {
             position: relative;
-            width: var(--player-width);
-            max-width: var(--player-max-width);
-            aspect-ratio: var(--player-aspect-ratio);
-            background-color: var(--player-bg);
-            border-radius: 12px;
+            background-color: #000;
+            border: 1px solid var(--border);
+            border-radius: 8px;
             overflow: hidden;
             box-shadow: 0 10px 40px rgba(0, 0, 0, 0.9);
-            border: 1px solid #2a2e37;
+            /* Defaults (Overridden by JS when you click apply) */
+            width: 100%; max-width: 900px; aspect-ratio: 16/9;
         }
 
-        /* The iframe is fixed to desktop dimensions and scaled down via JS */
         iframe {
             position: absolute;
-            top: 0;
-            left: 0;
-            border: none;
+            top: 0; left: 0; border: none;
             transform-origin: top left;
-            /* Width and height are dynamically managed by the JS below */
+        }
+
+        /* Note to show the current size */
+        .size-indicator {
+            margin-top: 10px; font-size: 0.9rem; color: #8b949e;
         }
     </style>
 </head>
 <body>
 
-    <div class="title">Live Sports Stream (Forced Desktop Mode)</div>
+    <!-- LIVE CONTROL PANEL -->
+    <div class="controls-container">
+        <h2 class="controls-title">⚙️ Player Dimension Tester</h2>
+        <div class="input-grid">
+            <div class="input-group">
+                <label>Container Width (e.g. 100%, 800px, 90vw)</label>
+                <input type="text" id="inpWidth" value="100%">
+            </div>
+            <div class="input-group">
+                <label>Container Height (e.g. auto, 400px, 50vh)</label>
+                <input type="text" id="inpHeight" value="auto">
+            </div>
+            <div class="input-group">
+                <label>Aspect Ratio (e.g. 16/9, 4/3, none)</label>
+                <input type="text" id="inpRatio" value="16/9">
+            </div>
+            <div class="input-group">
+                <label>Forced Desktop Width (Forces Landscape UI)</label>
+                <input type="number" id="inpDesktop" value="1280">
+            </div>
+        </div>
+        <button class="apply-btn" onclick="applyDimensions()">Apply Dimensions Live</button>
+    </div>
 
-    <!-- Container managing the ratio and width -->
+    <!-- THE PLAYER CONTAINER -->
     <div class="player-wrapper" id="playerWrapper">
-        <!-- Akamai Player Embed -->
         <iframe 
             id="akamaiIframe"
             src="https://players.akamai.com/players/hlsjs?streamUrl=https://cloudplay-sonyliv.pages.dev/ten3hd.m3u8" 
@@ -91,42 +119,66 @@
             allow="autoplay; fullscreen; encrypted-media">
         </iframe>
     </div>
+    
+    <div class="size-indicator" id="sizeIndicator">Current Rendered Size: Calculating...</div>
 
-    <!-- =========================================================
-         ⚙️ JAVASCRIPT FOR DESKTOP MODE SCALING
-    ========================================================= -->
+    <!-- JAVASCRIPT FOR DYNAMIC SIZING AND DESKTOP TRICK -->
     <script>
         const wrapper = document.getElementById('playerWrapper');
         const iframe = document.getElementById('akamaiIframe');
-        
-        // Grab the forced desktop width from the CSS variables
-        const rootStyles = getComputedStyle(document.documentElement);
-        const desktopWidth = parseInt(rootStyles.getPropertyValue('--forced-desktop-width')) || 1280;
+        const indicator = document.getElementById('sizeIndicator');
 
-        function forceDesktopMode() {
-            // Get the current responsive size of the wrapper
+        function applyDimensions() {
+            // 1. Get values from the inputs
+            const widthVal = document.getElementById('inpWidth').value.trim();
+            const heightVal = document.getElementById('inpHeight').value.trim();
+            const ratioVal = document.getElementById('inpRatio').value.trim();
+            const desktopWidthVal = parseInt(document.getElementById('inpDesktop').value.trim()) || 1280;
+
+            // 2. Apply CSS to the Container Wrapper
+            wrapper.style.width = widthVal;
+
+            if (heightVal.toLowerCase() === 'auto' || heightVal === '') {
+                wrapper.style.height = 'auto';
+                wrapper.style.aspectRatio = ratioVal !== 'none' ? ratioVal : '16/9';
+            } else {
+                wrapper.style.height = heightVal;
+                wrapper.style.aspectRatio = ratioVal !== 'none' ? ratioVal : 'unset';
+            }
+
+            // 3. Wait 50ms for the browser to draw the new container size, then scale the iframe
+            setTimeout(() => {
+                scaleIframe(desktopWidthVal);
+            }, 50);
+        }
+
+        function scaleIframe(desktopWidth) {
+            // Get the exact pixel size of the wrapper after CSS was applied
             const wrapperWidth = wrapper.clientWidth;
             const wrapperHeight = wrapper.clientHeight;
 
-            // Calculate how much we need to shrink the iframe to fit the wrapper
+            // Update Indicator text
+            indicator.innerText = `Current Rendered Size: ${wrapperWidth}px by ${wrapperHeight}px`;
+
+            // Calculate the shrinking ratio to make the massive desktop layout fit the container
             const scaleRatio = wrapperWidth / desktopWidth;
 
-            // Force the iframe to render at the desktop width
+            // 4. Force the Iframe to render in Desktop Landscape mode
             iframe.style.width = desktopWidth + 'px';
             
-            // Calculate the proportional height for the iframe so it fits perfectly
+            // Mathematically fix the iframe's height so it maps perfectly to the wrapper's height
             iframe.style.height = (wrapperHeight / scaleRatio) + 'px';
 
-            // Visually scale the iframe down to fit the container natively
+            // 5. Visually shrink it down
             iframe.style.transform = `scale(${scaleRatio})`;
         }
 
-        // Run the math on load
-        window.addEventListener('DOMContentLoaded', forceDesktopMode);
+        // Initialize perfectly on first load
+        window.addEventListener('DOMContentLoaded', applyDimensions);
         
-        // Re-calculate automatically if the user rotates their phone or resizes the browser window
-        window.addEventListener('resize', forceDesktopMode);
+        // Ensure it stays perfectly scaled if the user resizes the browser window or rotates their phone
+        window.addEventListener('resize', applyDimensions);
     </script>
 
 </body>
-            </html>
+</html>
