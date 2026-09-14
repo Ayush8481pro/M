@@ -2,108 +2,113 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Akamai Player - Responsive Crop Tester</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Akamai Player - Perfect Embed</title>
     
     <style>
         :root {
-            --bg-color: #0d1117;
-            --panel-bg: #161b22;
+            --bg-color: #000000;
+            --panel-bg: rgba(18, 22, 28, 0.95);
             --text-color: #c9d1d9;
             --accent: #2f81f7;
             --border: #30363d;
         }
 
+        /* 
+           1. NO SCROLLING GUARANTEE 
+           Locks the body to exactly the window size.
+        */
         body, html {
             margin: 0; padding: 0;
+            width: 100vw; height: 100vh;
             background-color: var(--bg-color);
             color: var(--text-color);
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            display: flex; flex-direction: column; align-items: center;
-            min-height: 100vh;
-            /* Prevents the 110% width from creating ugly horizontal page scrollbars */
-            overflow-x: hidden; 
+            overflow: hidden; /* ABSOLUTELY NO SCROLLBARS */
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
-        /* --- CONTROL PANEL STYLES --- */
-        .controls-container {
-            width: 90%; max-width: 1100px;
-            background: var(--panel-bg);
-            border: 1px solid var(--border);
-            border-radius: 8px; padding: 20px;
-            margin: 20px 0; box-shadow: 0 8px 24px rgba(0,0,0,0.5);
-            z-index: 10;
-        }
-
-        .controls-title {
-            margin: 0 0 15px 0; font-size: 1.2rem; font-weight: 600; color: #fff;
-            text-align: center;
-        }
-
-        .input-grid {
-            display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-            gap: 15px; margin-bottom: 15px;
-        }
-
-        .input-group { display: flex; flex-direction: column; gap: 5px; }
-        .input-group label { font-size: 0.85rem; color: #8b949e; font-weight: 500; }
-
-        .input-group input {
-            padding: 10px; background: #010409; border: 1px solid var(--border);
-            color: #fff; border-radius: 6px; font-size: 14px; outline: none;
-        }
-        .input-group input:focus { border-color: var(--accent); }
-
-        .apply-btn {
-            width: 100%; padding: 12px; background: var(--accent);
-            color: #fff; border: none; border-radius: 6px;
-            font-size: 1rem; font-weight: bold; cursor: pointer; transition: 0.2s;
-        }
-        .apply-btn:hover { background: #1f6feb; }
-
-        /* --- PLAYER STYLES --- */
+        /* 
+           2. THE PLAYER CONTAINER
+           This dynamically sizes to fit the screen without ever exceeding it.
+        */
         .player-wrapper {
             position: relative;
             background-color: #000;
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            /* Hides everything outside the box (crucial for cropping) */
-            overflow: hidden; 
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.9);
-            
-            /* Initial Defaults */
-            width: 110%; aspect-ratio: 4/3; height: 50vh;
+            overflow: hidden; /* Slices off the header perfectly */
+            /* The Width, Height, and Ratio are strictly managed by JS below */
         }
 
         iframe {
             position: absolute;
             left: 0; border: none;
-            /* Scales from the top left corner */
             transform-origin: top left;
         }
 
-        .size-indicator {
-            margin-top: 15px; font-size: 0.9rem; color: #8b949e; margin-bottom: 20px;
-            text-align: center; line-height: 1.5;
+        /* --- SETTINGS PANEL (Floating overlay so it doesn't cause scrolling) --- */
+        .controls-container {
+            position: absolute; top: 15px; left: 15px; right: 15px;
+            max-width: 800px; margin: 0 auto;
+            background: var(--panel-bg); backdrop-filter: blur(10px);
+            border: 1px solid var(--border); border-radius: 12px;
+            padding: 20px; box-shadow: 0 20px 40px rgba(0,0,0,0.8);
+            z-index: 100; transition: opacity 0.3s, transform 0.3s;
         }
+        
+        .controls-container.hidden {
+            opacity: 0; pointer-events: none; transform: translateY(-20px);
+        }
+
+        .controls-title {
+            margin: 0 0 15px 0; font-size: 1.1rem; font-weight: 600; color: #fff;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+
+        .input-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 12px; margin-bottom: 15px;
+        }
+
+        .input-group { display: flex; flex-direction: column; gap: 5px; }
+        .input-group label { font-size: 0.8rem; color: #8b949e; font-weight: 500; }
+        .input-group input {
+            padding: 8px; background: #010409; border: 1px solid var(--border);
+            color: #fff; border-radius: 6px; font-size: 14px; outline: none;
+        }
+        .input-group input:focus { border-color: var(--accent); }
+
+        .apply-btn {
+            width: 100%; padding: 12px; background: var(--accent); color: #fff;
+            border: none; border-radius: 6px; font-size: 1rem; font-weight: bold; 
+            cursor: pointer; transition: 0.2s;
+        }
+        .apply-btn:hover { background: #1f6feb; }
+
+        /* Floating Settings Toggle Button */
+        .settings-toggle {
+            position: absolute; bottom: 15px; right: 15px; z-index: 101;
+            background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);
+            color: white; padding: 10px 15px; border-radius: 20px; cursor: pointer;
+            backdrop-filter: blur(5px); font-size: 0.9rem; font-weight: bold;
+        }
+        .settings-toggle:hover { background: rgba(255,255,255,0.2); }
     </style>
 </head>
 <body>
 
-    <!-- LIVE CONTROL PANEL -->
-    <div class="controls-container">
-        <h2 class="controls-title">⚙️ Responsive Dimension & Crop Tester</h2>
+    <!-- SETTINGS TOGGLE (To view pure embed mode) -->
+    <button class="settings-toggle" onclick="toggleSettings()">⚙️ Toggle Settings</button>
+
+    <!-- FLOATING CONTROL PANEL -->
+    <div class="controls-container" id="controlsPanel">
+        <div class="controls-title">
+            <span>Embed Configuration</span>
+        </div>
         <div class="input-grid">
             <div class="input-group">
-                <label>Container Width</label>
-                <input type="text" id="inpWidth" value="110%">
-            </div>
-            <div class="input-group">
-                <label>Container Height</label>
-                <input type="text" id="inpHeight" value="50vh">
-            </div>
-            <div class="input-group">
-                <label>Aspect Ratio</label>
+                <label>Aspect Ratio (e.g. 4/3, 16/9)</label>
                 <input type="text" id="inpRatio" value="4/3">
             </div>
             <div class="input-group">
@@ -111,12 +116,13 @@
                 <input type="number" id="inpDesktop" value="1180">
             </div>
             <div class="input-group">
-                <!-- Using Percentage ensures the same visual proportion is cropped on all devices -->
-                <label>Top Crop % (Responsive)</label>
-                <input type="text" id="inpCrop" value="12%">
+                <!-- THE MAGIC CROP FIX: -->
+                <!-- Enter the exact pixel height of the Akamai Header on Desktop -->
+                <label>Desktop Header Crop (px)</label>
+                <input type="number" id="inpCrop" value="55">
             </div>
         </div>
-        <button class="apply-btn" onclick="applyDimensions()">Apply Dimensions Live</button>
+        <button class="apply-btn" onclick="applyDimensions()">Apply & Hide Settings</button>
     </div>
 
     <!-- THE PLAYER CONTAINER -->
@@ -128,87 +134,86 @@
             allow="autoplay; fullscreen; encrypted-media">
         </iframe>
     </div>
-    
-    <div class="size-indicator" id="sizeIndicator">Calculating Dimensions...</div>
 
-    <!-- JAVASCRIPT FOR DYNAMIC SIZING, PERCENTAGE CROPPING, AND DESKTOP TRICK -->
     <script>
         const wrapper = document.getElementById('playerWrapper');
         const iframe = document.getElementById('akamaiIframe');
-        const indicator = document.getElementById('sizeIndicator');
+        const panel = document.getElementById('controlsPanel');
+
+        function toggleSettings() {
+            panel.classList.toggle('hidden');
+            // Re-calculate math slightly after UI change just in case
+            setTimeout(applyDimensions, 100);
+        }
 
         function applyDimensions() {
-            // 1. Get values from the inputs
-            const widthVal = document.getElementById('inpWidth').value.trim();
-            const heightVal = document.getElementById('inpHeight').value.trim();
-            const ratioVal = document.getElementById('inpRatio').value.trim();
-            const desktopWidthVal = parseInt(document.getElementById('inpDesktop').value.trim()) || 1180;
-            const cropVal = document.getElementById('inpCrop').value.trim() || '0%';
+            // Hide panel when hitting apply for a clean look
+            if (!event || event.type === 'click') panel.classList.add('hidden');
 
-            // 2. Apply CSS to the Container Wrapper
-            wrapper.style.width = widthVal;
+            const ratioStr = document.getElementById('inpRatio').value.trim();
+            const desktopWidth = parseFloat(document.getElementById('inpDesktop').value.trim()) || 1180;
+            
+            // This is the physical height of the header in the 1180px desktop view.
+            const desktopHeaderHeight = parseFloat(document.getElementById('inpCrop').value.trim()) || 0;
 
-            if (heightVal.toLowerCase() === 'auto' || heightVal === '') {
-                wrapper.style.height = 'auto';
-                wrapper.style.aspectRatio = ratioVal !== 'none' ? ratioVal : '4/3';
+            // 1. DYNAMIC NO-SCROLL RATIO MATH
+            // This forces the wrapper to act like "object-fit: contain" perfectly fitting the screen.
+            if (ratioStr.includes('/')) {
+                const parts = ratioStr.split('/');
+                const ratioNum = parseFloat(parts[0]) / parseFloat(parts[1]);
+                
+                wrapper.style.aspectRatio = ratioStr;
+                wrapper.style.width = '100%';
+                wrapper.style.height = '100%';
+                // The absolute limit width so it doesn't overflow height on landscape
+                wrapper.style.maxWidth = `calc(100vh * ${ratioNum})`; 
+                wrapper.style.maxHeight = '100%';
             } else {
-                wrapper.style.height = heightVal;
-                wrapper.style.aspectRatio = ratioVal !== 'none' ? ratioVal : 'unset';
+                // If blank, just fill entire screen
+                wrapper.style.aspectRatio = 'unset';
+                wrapper.style.width = '100%'; wrapper.style.height = '100%';
+                wrapper.style.maxWidth = '100%'; wrapper.style.maxHeight = '100%';
             }
 
-            // 3. Wait 50ms for the browser to visually draw the new container size, then scale the iframe
+            // 2. Wait 50ms for CSS to reshape the box, then slice the video
             setTimeout(() => {
-                scaleIframe(desktopWidthVal, cropVal);
+                scaleIframe(desktopWidth, desktopHeaderHeight);
             }, 50);
         }
 
-        function scaleIframe(desktopWidth, cropString) {
-            // Get the exact pixel size of the wrapper box generated by the device's screen
+        function scaleIframe(desktopWidth, desktopHeaderHeight) {
+            // Get the resulting exact pixel size of the black wrapper box
             const wrapperWidth = wrapper.clientWidth;
             const wrapperHeight = wrapper.clientHeight;
 
-            // --- THE RESPONSIVE PERCENTAGE MATH ---
-            let cropPx = 0;
-            if (cropString.includes('%')) {
-                // If user entered a percentage (e.g., 12%), dynamically calculate it based on the container's height
-                // This ensures it scales proportionally whether viewed on a TV or a Phone.
-                cropPx = wrapperHeight * (parseFloat(cropString) / 100);
-            } else {
-                // Fallback for strict pixel values (e.g. 50px)
-                const measureDiv = document.createElement('div');
-                measureDiv.style.position = 'absolute';
-                measureDiv.style.visibility = 'hidden';
-                measureDiv.style.height = cropString;
-                document.body.appendChild(measureDiv);
-                cropPx = measureDiv.getBoundingClientRect().height || 0;
-                document.body.removeChild(measureDiv);
-            }
-
-            // Calculate the shrinking ratio to make the massive desktop layout fit the container width
+            // --- THE PERFECT RESPONSIVE CROP MATH ---
+            // Figure out how much we are shrinking the massive 1180px layout down
             const scaleRatio = wrapperWidth / desktopWidth;
 
-            // Update Indicator text on the webpage to show exactly what's happening
-            indicator.innerHTML = `Rendered Container Size: <b>${wrapperWidth}px by ${wrapperHeight}px</b> <br> Visually Cropped from Top: <b>${cropPx.toFixed(1)}px</b> (Scales Automatically)`;
+            // If the header is 55px tall in the massive desktop view, and we shrink the video by 0.5x,
+            // we must crop exactly 27.5px. This makes the crop IDENTICAL on portrait or landscape!
+            const scaledCropPx = desktopHeaderHeight * scaleRatio;
 
-            // 1. Shift the iframe up by the exact computed crop amount (moves the header out of the box)
-            iframe.style.top = `-${cropPx}px`;
+            // 1. Shift the iframe up by the exact computed amount to slice the header off
+            iframe.style.top = `-${scaledCropPx}px`;
 
-            // 2. Force the Iframe to render in Desktop Landscape width
+            // 2. Force the Iframe into Desktop Landscape mode
             iframe.style.width = desktopWidth + 'px';
             
-            // 3. Because we shifted the top UP, the bottom of the video would end up short.
-            // We calculate the required visual height (wrapper + crop), and un-scale it to get the raw height needed.
-            const requiredVisualHeight = wrapperHeight + cropPx;
+            // 3. Fix the Bottom Gap
+            // Because we shifted the top up, the bottom will be too short. 
+            // We calculate the visual height needed, and un-scale it to get the raw height.
+            const requiredVisualHeight = wrapperHeight + scaledCropPx;
             iframe.style.height = (requiredVisualHeight / scaleRatio) + 'px';
 
-            // 4. Visually shrink it down
+            // 4. Shrink it down natively
             iframe.style.transform = `scale(${scaleRatio})`;
         }
 
         // Initialize perfectly on first load
         window.addEventListener('DOMContentLoaded', applyDimensions);
         
-        // Keep it scaled properly if the user resizes the browser window or rotates their phone
+        // Keep it scaled properly without causing scrollbars if the screen rotates
         window.addEventListener('resize', applyDimensions);
     </script>
 
