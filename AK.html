@@ -3,233 +3,72 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Akamai Encrypted HLS Player (Servekeys/CORS Fix)</title>
+    <title>Live Stream - Akamai Player</title>
     
-    <!-- Using standard HLS.js, but we will deeply configure it via JS -->
-    <script src="https://cdn.jsdelivr.net/npm/hls.js@1.4.12/dist/hls.min.js"></script>
-
     <style>
         :root {
-            --akamai-blue: #0072C6;
-            --bg-dark: #0a0c10;
-            --panel-bg: #161a22;
-            --text-light: #e0e6ed;
-            --border-color: #30363d;
+            --bg-color: #0f1115;
         }
 
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background-color: var(--bg-dark); color: var(--text-light);
-            margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center;
+        /* Basic page reset for a cinematic look */
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: var(--bg-color);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
         }
 
-        .player-container {
-            width: 100%; max-width: 900px; background: var(--panel-bg);
-            padding: 25px; border-radius: 12px; box-shadow: 0 12px 24px rgba(0,0,0,0.9);
-            border: 1px solid var(--border-color);
+        /* Responsive 16:9 Container */
+        .player-wrapper {
+            position: relative;
+            width: 90%;
+            max-width: 1200px;
+            aspect-ratio: 16 / 9; /* Keeps the perfect video ratio */
+            background-color: #000;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8);
+            border: 1px solid #2a2e37;
         }
 
-        .header-title {
-            text-align: center; color: var(--akamai-blue);
-            font-size: 1.4rem; font-weight: bold; margin-bottom: 20px;
+        /* Iframe takes up the whole wrapper */
+        iframe {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+
+        /* Simple Title */
+        .title {
+            color: #ffffff;
+            margin-bottom: 20px;
+            font-size: 1.5rem;
+            font-weight: 600;
             letter-spacing: 0.5px;
         }
-
-        .controls { display: flex; flex-direction: column; gap: 15px; margin-bottom: 20px; }
-        .input-row { display: flex; gap: 10px; }
-
-        input[type="text"] {
-            flex: 1; padding: 14px; background: #0d1117; border: 1px solid var(--border-color);
-            border-radius: 6px; color: #fff; font-size: 1rem;
-        }
-
-        button {
-            padding: 14px 24px; background: var(--akamai-blue); color: white;
-            border: none; border-radius: 6px; font-weight: bold; cursor: pointer;
-            transition: 0.2s;
-        }
-        button:hover { background: #005a9e; }
-
-        .options-row {
-            display: flex; flex-wrap: wrap; gap: 20px;
-            font-size: 0.9rem; color: #8b949e; background: #0d1117;
-            padding: 12px; border-radius: 6px; border: 1px solid var(--border-color);
-        }
-        .options-row label { display: flex; align-items: center; gap: 8px; cursor: pointer; }
-
-        .video-wrapper {
-            width: 100%; aspect-ratio: 16/9; background: #000;
-            border-radius: 8px; overflow: hidden; border: 1px solid var(--border-color);
-        }
-        video { width: 100%; height: 100%; outline: none; }
-
-        .log-box {
-            margin-top: 20px; padding: 15px; height: 120px; background: #010409;
-            border-radius: 6px; font-family: 'Courier New', Courier, monospace;
-            font-size: 0.85rem; overflow-y: auto; color: #8b949e;
-            border: 1px solid var(--border-color);
-        }
-        .log-error { color: #ff7b72; }
-        .log-success { color: #3fb950; }
-        .log-warn { color: #d29922; }
     </style>
 </head>
 <body>
 
-    <div class="player-container">
-        <div class="header-title">Akamai AES-128 / Servekeys Player</div>
+    <div class="title">Live Sports Stream (Ten 3 HD)</div>
 
-        <div class="controls">
-            <div class="input-row">
-                <input type="text" id="streamUrl" placeholder="Enter .m3u8 URL here...">
-                <button onclick="loadStream()">Play Stream</button>
-            </div>
-            <div class="options-row">
-                <label>
-                    <input type="checkbox" id="withCredentials" checked>
-                    Send CORS Credentials (Cookies)
-                </label>
-                <label>
-                    <input type="checkbox" id="inheritTokens" checked>
-                    Pass Master URL Tokens to Keys
-                </label>
-                <label title="Use this if the Key server strictly blocks your domain.">
-                    <input type="checkbox" id="useCorsProxy">
-                    Bypass strict CORS via Proxy (Fixes Key fetch blocks)
-                </label>
-            </div>
-        </div>
-
-        <div class="video-wrapper">
-            <video id="video" controls></video>
-        </div>
-
-        <div class="log-box" id="logBox">Player initialized. Ready to process encrypted streams.<br></div>
+    <div class="player-wrapper">
+        <!-- The Akamai Player Embedded Here -->
+        <iframe 
+            src="https://players.akamai.com/players/hlsjs?streamUrl=https://cloudplay-sonyliv.pages.dev/ten3hd.m3u8" 
+            allowfullscreen 
+            allow="autoplay; fullscreen; encrypted-media">
+        </iframe>
     </div>
 
-    <script>
-        let hls = null;
-        const video = document.getElementById('video');
-        const logBox = document.getElementById('logBox');
-
-        function log(msg, type = "normal") {
-            const span = document.createElement('span');
-            span.innerHTML = `[${new Date().toLocaleTimeString()}] ${msg}<br>`;
-            if (type === "error") span.className = "log-error";
-            if (type === "success") span.className = "log-success";
-            if (type === "warn") span.className = "log-warn";
-            logBox.appendChild(span);
-            logBox.scrollTop = logBox.scrollHeight;
-        }
-
-        // --- THE MAGIC: Custom Akamai Network Interceptor ---
-        // This overrides standard behavior to force tokens and CORS bypass on Encryption Keys
-        class AkamaiNetworkInterceptor extends Hls.DefaultConfig.loader {
-            constructor(config) {
-                super(config);
-                const originalLoad = this.load.bind(this);
-                
-                this.load = function (context, config, callbacks) {
-                    const inheritTokens = document.getElementById('inheritTokens').checked;
-                    const useCorsProxy = document.getElementById('useCorsProxy').checked;
-
-                    // 1. Identify if the browser is fetching an AES-128 Encryption Key (servekeys)
-                    if (context.type === 'key' || context.url.includes('servekeys')) {
-                        log(`Intercepted Key Request: ${context.url}`, 'warn');
-
-                        // 2. Inherit Akamai Security Tokens from Master Playlist
-                        if (inheritTokens && window.masterQueryParams && !context.url.includes(window.masterQueryParams.substring(1, 5))) {
-                            const separator = context.url.includes('?') ? '&' : '?';
-                            context.url += separator + window.masterQueryParams.substring(1);
-                            log(`Appended Akamai Token to Key: ${context.url}`, 'success');
-                        }
-
-                        // 3. Bypass Origin Block (CORS Proxy)
-                        if (useCorsProxy) {
-                            // Uses a public proxy to strip origin blocks from the servekeys server
-                            context.url = 'https://corsproxy.io/?' + encodeURIComponent(context.url);
-                            log(`Routed Key request through CORS proxy.`, 'warn');
-                        }
-                    }
-
-                    // Proceed with the modified request
-                    originalLoad(context, config, callbacks);
-                };
-            }
-        }
-
-        function loadStream() {
-            const url = document.getElementById('streamUrl').value.trim();
-            const sendCredentials = document.getElementById('withCredentials').checked;
-
-            if (!url) return alert("Please enter a valid m3u8 URL");
-
-            // Extract query parameters (Akamai tokens) from the main URL
-            try {
-                const urlObj = new URL(url);
-                window.masterQueryParams = urlObj.search; 
-            } catch(e) { window.masterQueryParams = ""; }
-
-            if (hls) {
-                hls.destroy();
-            }
-
-            if (Hls.isSupported()) {
-                log("Starting Akamai engine with Custom CORS/Key Interceptor...");
-
-                const hlsConfig = {
-                    debug: false,
-                    // Inject our custom interceptor class
-                    fLoader: AkamaiNetworkInterceptor, 
-                    pLoader: AkamaiNetworkInterceptor,
-                    
-                    // Allows decryption keys to be fetched asynchronously 
-                    emeEnabled: true,
-                    
-                    // The core XHR Setup for CORS credentials
-                    xhrSetup: function(xhr, xhrUrl) {
-                        if (sendCredentials) {
-                            xhr.withCredentials = true;
-                        }
-                    }
-                };
-
-                hls = new Hls(hlsConfig);
-                hls.loadSource(url);
-                hls.attachMedia(video);
-
-                hls.on(Hls.Events.MANIFEST_PARSED, function() {
-                    log("Manifest loaded. Checking for encryption keys...", "success");
-                    video.play().catch(() => log("Press play to start.", "warn"));
-                });
-                
-                hls.on(Hls.Events.KEY_LOADED, function() {
-                    log("AES/DRM Key downloaded successfully. Decrypting stream...", "success");
-                });
-
-                hls.on(Hls.Events.ERROR, function(event, data) {
-                    if (data.fatal) {
-                        if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
-                            log(`Network/CORS Error: ${data.details}.`, "error");
-                            if(data.details.includes('keyLoadError')) {
-                                log("Tip: Key was blocked. Try checking 'Bypass strict CORS via Proxy'.", "warn");
-                            }
-                            hls.startLoad(); 
-                        } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
-                            hls.recoverMediaError();
-                        } else {
-                            hls.destroy();
-                        }
-                    } else if (data.details.includes('keyLoadError')) {
-                        log(`Failed to fetch Key. Server likely blocking origin.`, "error");
-                    }
-                });
-
-            } else {
-                log("Browser natively handling HLS.", "warn");
-                video.src = url;
-            }
-        }
-    </script>
 </body>
 </html>
